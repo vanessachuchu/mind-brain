@@ -2,8 +2,8 @@
 // 用戶可以在這裡設定自己的 API Key，讓所有用戶免費使用
 
 export const AI_CONFIG = {
-  // OpenAI API Key - 由開發者提供，讓用戶免費使用
-  OPENAI_API_KEY: "***REMOVED***",
+  // OpenAI API Key - 從環境變數讀取
+  OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY,
   
   // OpenAI API 設定
   OPENAI_BASE_URL: "https://api.openai.com/v1",
