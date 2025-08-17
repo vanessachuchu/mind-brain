@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "./",
+  base: mode === 'production' ? '/thought-spark-cards-main-2/' : './',
   server: {
     host: "127.0.0.1", 
     port: 3000,
