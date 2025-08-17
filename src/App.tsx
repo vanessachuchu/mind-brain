@@ -31,7 +31,7 @@ const App = () => {
         <AuthProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter basename={import.meta.env.PROD ? "/mind-brain" : ""}>
+          <BrowserRouter basename={import.meta.env.PROD ? "/thought-spark-cards-main-2" : ""}>
             <div className="min-h-screen bg-background pb-16">
               <TopNav />
               <Routes>
