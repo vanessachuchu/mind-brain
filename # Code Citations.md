@@ -9,6 +9,4 @@ git config --global user.name "vanessachuchu"
 git config --global user.email "vanessachu850428@gmail.com"
 ```
 
-Replace "Your Name" and "your.email@example.com" with your actual name and email
-```
 
