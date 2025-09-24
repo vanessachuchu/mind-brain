@@ -39,75 +39,129 @@ interface AiMindMapAnalysis {
   conclusion: string;
 }
 
-// 智能摘要文本內容
+// 深度智能摘要 - 提取思考重點
 function intelligentSummary(text: string, maxLength: number = 15): string {
   if (!text || text.trim().length === 0) return '思考';
   
-  // 清理文本
+  // 先清理文本，但保留關鍵標點
   let cleaned = text
-    .replace(/[？！。，；：「」『』（）\[\]]/g, '')
+    .replace(/[「」『』（）\[\]]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   
   // 如果文本很短，直接返回
   if (cleaned.length <= maxLength) return cleaned || '思考';
   
-  // 優先提取有意義的短語
-  const meaningfulPatterns = [
-    // 行動相關
-    /(如何.{1,10}|怎麼.{1,10}|什麼時候.{1,10}|為什麼.{1,10})/,
-    // 情感和狀態
-    /(感到.{1,8}|覺得.{1,8}|希望.{1,8}|想要.{1,8})/,
-    // 目標和計劃
-    /(目標.{1,8}|計畫.{1,8}|打算.{1,8}|決定.{1,8})/,
-    // 問題和挑戰
-    /(問題.{1,8}|困難.{1,8}|挑戰.{1,8}|障礙.{1,8})/,
-    // 學習和成長
-    /(學習.{1,8}|提升.{1,8}|改善.{1,8}|發展.{1,8})/,
-    // 工作和事業
-    /(工作.{1,8}|職業.{1,8}|事業.{1,8}|專案.{1,8})/
+  // 第一優先級：直接問題和核心思考
+  const coreThinkingPatterns = [
+    /(如何[^。？！]*)/,  // 如何類問題
+    /(為什麼[^。？！]*)/,  // 為什麼類問題
+    /(怎麼[^。？！]*)/,  // 怎麼類問題
+    /(什麼時候[^。？！]*)/,  // 時間相關
+    /(需要.*?(?=，|。|？|！|$))/,  // 需求表達
+    /(想要.*?(?=，|。|？|！|$))/,  // 慾望表達
+    /(希望.*?(?=，|。|？|！|$))/,  // 期望表達
+    /(計劃.*?(?=，|。|？|！|$))/   // 計劃表達
   ];
   
-  for (const pattern of meaningfulPatterns) {
+  for (const pattern of coreThinkingPatterns) {
     const match = cleaned.match(pattern);
-    if (match && match[1] && match[1].length <= maxLength) {
-      return match[1];
+    if (match && match[1]) {
+      let result = match[1].replace(/[，。？！]+$/, '').trim();
+      if (result.length <= maxLength && result.length >= 3) {
+        return result;
+      }
     }
   }
   
-  // 找出句子的核心部分（主詞+動詞+受詞的模式）
-  const sentencePatterns = [
-    /(.{1,6}(?:需要|想要|希望|計畫|決定).{1,8})/,
-    /(.{1,8}(?:關於|是|有|在|對).{1,6})/,
-    /((?:學習|工作|生活|感情|健康).{1,8})/
+  // 第二優先級：情感狀態和感受
+  const emotionalPatterns = [
+    /(感到.{2,12})/,
+    /(覺得.{2,12})/,
+    /(擔心.{2,12})/,
+    /(困擾.{2,12})/,
+    /(開心.{2,12})/,
+    /(滿意.{2,12})/
   ];
   
-  for (const pattern of sentencePatterns) {
+  for (const pattern of emotionalPatterns) {
     const match = cleaned.match(pattern);
     if (match && match[1] && match[1].length <= maxLength) {
-      return match[1];
+      return match[1].replace(/[，。？！]+$/, '');
     }
   }
   
-  // 智能切割：在適當的位置切斷
+  // 第三優先級：動作和決策
+  const actionPatterns = [
+    /(決定.*?(?=，|。|因為|但是|$))/,
+    /(打算.*?(?=，|。|因為|但是|$))/,
+    /(正在.*?(?=，|。|因為|但是|$))/,
+    /(已經.*?(?=，|。|因為|但是|$))/,
+    /(可以.*?(?=，|。|因為|但是|$))/,
+    /(應該.*?(?=，|。|因為|但是|$))/
+  ];
+  
+  for (const pattern of actionPatterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[1]) {
+      let result = match[1].replace(/[，。？！]+$/, '').trim();
+      if (result.length <= maxLength && result.length >= 3) {
+        return result;
+      }
+    }
+  }
+  
+  // 第四優先級：主要概念和主題
+  const conceptPatterns = [
+    /(關於.{2,10})/,
+    /(有關.{2,10})/,
+    /(.{2,6}問題)/,
+    /(.{2,6}方法)/,
+    /(.{2,6}想法)/,
+    /(.{2,6}計劃)/,
+    /(.{2,6}目標)/
+  ];
+  
+  for (const pattern of conceptPatterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[1] && match[1].length <= maxLength) {
+      return match[1].replace(/[，。？！]+$/, '');
+    }
+  }
+  
+  // 第五優先級：句子開頭的核心部分
+  const sentences = cleaned.split(/[。！？]/);
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim();
+    if (trimmed.length >= 4 && trimmed.length <= maxLength) {
+      return trimmed;
+    }
+  }
+  
+  // 最後手段：智能截斷
   if (cleaned.length > maxLength) {
-    // 尋找最佳切割點（避免在詞語中間切斷）
-    let cutIndex = maxLength;
-    const delimiters = ['，', '、', ' ', '的', '了', '是', '在', '有', '要'];
+    // 優先在意義斷點截斷
+    const breakPoints = ['，', '、', '但是', '而且', '因為', '所以', '不過', '然而'];
     
-    for (let i = Math.max(8, maxLength - 3); i <= Math.min(cleaned.length - 1, maxLength + 3); i++) {
-      if (delimiters.includes(cleaned[i])) {
+    for (let i = Math.min(maxLength, cleaned.length - 1); i >= Math.max(4, maxLength - 5); i--) {
+      const char = cleaned[i];
+      if (breakPoints.some(bp => cleaned.substring(i, i + bp.length) === bp)) {
+        let result = cleaned.substring(0, i);
+        return result || cleaned.substring(0, Math.min(8, cleaned.length));
+      }
+    }
+    
+    // 避免在詞語中間截斷
+    let cutIndex = maxLength;
+    for (let i = maxLength - 2; i <= Math.min(cleaned.length - 1, maxLength + 2); i++) {
+      if (/[\s，、。]/.test(cleaned[i])) {
         cutIndex = i;
         break;
       }
     }
     
-    let result = cleaned.substring(0, cutIndex);
-    
-    // 清理結尾
-    result = result.replace(/[的了在有要]$/, '');
-    
-    return result || cleaned.substring(0, Math.min(10, cleaned.length));
+    let result = cleaned.substring(0, cutIndex).replace(/[，、。\s]*$/, '');
+    return result.length >= 3 ? result : cleaned.substring(0, Math.min(8, cleaned.length));
   }
   
   return cleaned || '思考';
@@ -437,70 +491,110 @@ JSON格式範例：
     setNodes(newNodes);
   };
 
-  // 生成傳統節點（響應式改進版）
+  // 生成時間線模式節點（優化重點提取）
   const generateTraditionalNodes = () => {
     const newNodes: MindMapNode[] = [];
     
     // 響應式畫布尺寸
     const canvas = canvasRef.current;
-    const canvasWidth = canvas ? Math.min(800, canvas.getBoundingClientRect().width * 0.85) : 600;
-    const yStep = Math.max(80, Math.min(120, canvasWidth / 6)); // 響應式間距
+    const canvasWidth = canvas ? Math.min(900, canvas.getBoundingClientRect().width * 0.9) : 700;
+    const yStep = Math.max(90, Math.min(130, canvasWidth / 5));
     
-    // 根節點
+    // 根節點 - 核心思考主題
+    const coreTheme = intelligentSummary(thoughtContent, 12);
     newNodes.push({
       id: 'root',
-      text: intelligentSummary(thoughtContent, 12),
-      originalText: thoughtContent,
+      text: coreTheme,
+      originalText: `核心思考：${thoughtContent}`,
       x: canvasWidth / 2,
-      y: 60,
+      y: 70,
       level: 0,
-      type: 'root'
+      type: 'root',
+      weight: 10
     });
     
-    // 處理對話訊息
+    // 處理對話訊息 - 時間線排列
     const userMessages = messages.filter(msg => msg.role === 'user' && msg.content !== thoughtContent);
     const assistantMessages = messages.filter(msg => msg.role === 'assistant');
     const conversationRounds = Math.min(userMessages.length, assistantMessages.length);
     
     if (conversationRounds > 0) {
-      const topicWidth = Math.max(canvasWidth / conversationRounds, 180);
-      const totalWidth = topicWidth * conversationRounds;
-      const startX = (canvasWidth - totalWidth) / 2 + topicWidth / 2;
-
+      // 計算節點佈局 - 垂直時間線
+      const timelineX = canvasWidth / 2;
+      let currentY = 70 + yStep;
+      
       for (let i = 0; i < conversationRounds; i++) {
         const userMsg = userMessages[i];
         const aiMsg = assistantMessages[i];
         
         if (!userMsg || !aiMsg) continue;
         
-        const topicX = startX + i * topicWidth;
-        const topicY = 60 + yStep;
+        // 提取用戶思考的核心重點
+        const userThought = intelligentSummary(userMsg.content, 16);
+        const timeLabel = `第${i + 1}個思考`;
         
-        // 用戶思考節點（使用智能摘要）
+        // 用戶思考節點 - 左側
         newNodes.push({
-          id: `topic-${i}`,
-          text: intelligentSummary(userMsg.content, 15),
-          originalText: userMsg.content,
-          x: topicX,
-          y: topicY,
+          id: `user-${i}`,
+          text: userThought,
+          originalText: `${timeLabel}：${userMsg.content}`,
+          x: timelineX - 180,
+          y: currentY,
           level: 1,
           parentId: 'root',
-          type: 'theme'
+          type: 'question',
+          weight: 7
         });
         
-        // AI洞察節點（使用智能摘要）
-        const insightX = topicX;
-        const insightY = topicY + yStep;
+        // 提取AI回應的關鍵洞察
+        const aiInsight = intelligentSummary(aiMsg.content, 20);
+        
+        // AI洞察節點 - 右側  
+        newNodes.push({
+          id: `ai-${i}`,
+          text: aiInsight,
+          originalText: `AI回應：${aiMsg.content}`,
+          x: timelineX + 180,
+          y: currentY,
+          level: 1,
+          parentId: 'root',
+          type: 'insight',
+          weight: 8
+        });
+        
+        // 思考連接節點 - 中心線
+        if (i < conversationRounds - 1) {
+          newNodes.push({
+            id: `connection-${i}`,
+            text: '↓',
+            originalText: '思考延續',
+            x: timelineX,
+            y: currentY + yStep / 2,
+            level: 2,
+            parentId: 'root',
+            type: 'connection',
+            weight: 3
+          });
+        }
+        
+        currentY += yStep;
+      }
+      
+      // 如果有多輪對話，在底部添加思考總結
+      if (conversationRounds >= 2) {
+        const lastAiMsg = assistantMessages[assistantMessages.length - 1];
+        const conclusion = intelligentSummary(lastAiMsg.content, 18);
         
         newNodes.push({
-          id: `insight-${i}`,
-          text: intelligentSummary(aiMsg.content, 18),
-          originalText: aiMsg.content,
-          x: insightX,
-          y: insightY,
-          level: 2,
-          parentId: `topic-${i}`,
-          type: 'insight'
+          id: 'timeline-conclusion',
+          text: conclusion,
+          originalText: `思考總結：${lastAiMsg.content}`,
+          x: timelineX,
+          y: currentY + yStep / 2,
+          level: 1,
+          parentId: 'root',
+          type: 'conclusion',
+          weight: 9
         });
       }
     }
@@ -991,21 +1085,29 @@ JSON格式範例：
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 bg-purple-500 rounded-full"></span>
-              核心思緒
+              核心主題
             </div>
             <div className="flex items-center gap-1">
-              <span className="inline-block w-3 h-3 bg-blue-500 rounded-full"></span>
-              探討話題
+              <span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
+              思考重點
             </div>
             <div className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></span>
-              AI回應
+              關鍵洞察
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 bg-red-500 rounded-full"></span>
+              思考總結
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 bg-indigo-500 rounded-full"></span>
+              時間連接
             </div>
           </div>
         )}
         
         <div className="flex items-center gap-1 text-muted-foreground/70 text-xs">
-          💡 提示：{useAiMode ? '智能分析模式顯示思考邏輯結構' : '時間線模式按對話順序排列'} • 自動適配螢幕 • 懸停查看詳情 • 可滾輪縮放和拖拽
+          💡 提示：{useAiMode ? '智能分析模式顯示思考邏輯結構' : '時間線模式顯示思考重點精華'} • 自動適配螢幕 • 懸停查看詳情 • 可滾輪縮放和拖拽
         </div>
         
         {aiAnalysis && (
