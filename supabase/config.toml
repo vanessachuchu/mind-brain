@@ -1,0 +1,7 @@
+project_id = "ajrwyazsbsnuszwzxkuw"
+
+[functions.generate-action-plan]
+verify_jwt = false
+
+[functions.notion-sync]
+verify_jwt = true
