@@ -6,7 +6,9 @@
       "Bash(npm run build:*)",
       "Bash(rm:*)",
       "Bash(npm install:*)",
-      "Bash(git remote set-url:*)"
+      "Bash(git remote set-url:*)",
+      "Bash(gh run list:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

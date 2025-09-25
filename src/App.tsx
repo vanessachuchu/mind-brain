@@ -12,6 +12,7 @@ import ThoughtDetail from "./pages/ThoughtDetail";
 import SearchPage from "./pages/Search";
 import SettingsPage from "./pages/Settings";
 import TodoPage from "./pages/Todo";
+import NotionCallback from "./pages/NotionCallback";
 
 import TopNav from "./components/TopNav";
 import BottomNav from "./components/BottomNav";
@@ -39,6 +40,7 @@ const App = () => {
                 <Route path="/todo" element={<TodoPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/auth/notion/callback" element={<NotionCallback />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <BottomNav />

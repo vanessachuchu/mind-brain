@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,19 +6,73 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useNotionSync } from "@/hooks/useNotionSync";
+import { useNotionOAuth } from "@/hooks/useNotionOAuth";
 import { useTodos } from "@/hooks/useTodos";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, ExternalLink, RefreshCcw, Upload, Download, CheckCircle, AlertCircle } from "lucide-react";
+import { Settings, ExternalLink, RefreshCcw, Upload, Download, CheckCircle, AlertCircle, Zap } from "lucide-react";
 
 export default function NotionSettings() {
   const { settings, loading, syncing, saveNotionSettings, testNotionConnection, syncTodosToNotion, getTodosFromNotion } = useNotionSync();
   const { todos, addTodo } = useTodos();
   const { toast } = useToast();
+  const { 
+    isConnecting, 
+    isConnected, 
+    error: oauthError, 
+    startAuthorization, 
+    checkConnection, 
+    disconnect 
+  } = useNotionOAuth();
   
   const [apiToken, setApiToken] = useState(settings?.notion_api_token || "");
   const [databaseId, setDatabaseId] = useState(settings?.notion_database_id || "");
   const [connectionTested, setConnectionTested] = useState(false);
   const [connectionValid, setConnectionValid] = useState(false);
+  const [setupMethod, setSetupMethod] = useState<'oauth' | 'manual'>('oauth');
+
+  // 檢查 OAuth 連接狀態
+  useEffect(() => {
+    checkConnection();
+  }, [checkConnection]);
+
+  // 處理 OAuth 錯誤
+  useEffect(() => {
+    if (oauthError) {
+      toast({
+        title: "OAuth 授權失敗",
+        description: oauthError,
+        variant: "destructive"
+      });
+    }
+  }, [oauthError, toast]);
+
+  const handleOAuthConnect = async () => {
+    try {
+      await startAuthorization();
+    } catch (error) {
+      toast({
+        title: "無法開始授權",
+        description: error instanceof Error ? error.message : "未知錯誤",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleOAuthDisconnect = async () => {
+    try {
+      await disconnect();
+      toast({
+        title: "已斷開連接",
+        description: "已成功斷開與 Notion 的連接"
+      });
+    } catch (error) {
+      toast({
+        title: "斷開失敗",
+        description: error instanceof Error ? error.message : "未知錯誤",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleTestConnection = async () => {
     if (!apiToken || !databaseId) {
@@ -169,85 +223,148 @@ export default function NotionSettings() {
             Notion 整合設定
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="notion-token">Notion API Token</Label>
-            <Input
-              id="notion-token"
-              type="password"
-              placeholder="secret_..."
-              value={apiToken}
-              onChange={(e) => setApiToken(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              請到 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                Notion Integration 頁面 <ExternalLink className="w-3 h-3 inline" />
-              </a> 建立新的整合並複製 API Token
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="database-id">資料庫 ID</Label>
-            <Input
-              id="database-id"
-              placeholder="請輸入 Notion 資料庫 ID"
-              value={databaseId}
-              onChange={(e) => setDatabaseId(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              從 Notion 資料庫 URL 中複製資料庫 ID (在 .so/ 和 ?v= 之間的字串)
-            </p>
-          </div>
-
-          <div className="flex gap-2">
+        <CardContent className="space-y-6">
+          {/* 設定方式選擇 */}
+          <div className="flex gap-2 p-1 bg-muted rounded-lg">
             <Button
-              onClick={handleTestConnection}
-              disabled={syncing || !apiToken || !databaseId}
-              variant="outline"
+              variant={setupMethod === 'oauth' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSetupMethod('oauth')}
+              className="flex-1"
             >
-              {syncing ? (
-                <RefreshCcw className="w-4 h-4 animate-spin mr-2" />
-              ) : connectionTested ? (
-                connectionValid ? (
-                  <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                )
-              ) : null}
-              測試連接
+              <Zap className="w-4 h-4 mr-2" />
+              一鍵連接（推薦）
             </Button>
-
-            {connectionTested && connectionValid && (
-              <Button
-                onClick={handleSaveSettings}
-                disabled={syncing}
-              >
-                保存設定
-              </Button>
-            )}
+            <Button
+              variant={setupMethod === 'manual' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSetupMethod('manual')}
+              className="flex-1"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              手動設定
+            </Button>
           </div>
 
-          {connectionTested && (
-            <div className="p-3 rounded-lg bg-muted">
-              <div className="flex items-center gap-2">
-                {connectionValid ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span className="text-sm text-green-700">連接成功</span>
-                  </>
+          {/* OAuth 方式 */}
+          {setupMethod === 'oauth' && (
+            <div className="space-y-4">
+              <div className="text-center space-y-4 py-6">
+                <div className="text-sm text-muted-foreground">
+                  最簡單的連接方式，只需一鍵授權即可開始使用
+                </div>
+                
+                {!isConnected ? (
+                  <Button
+                    onClick={handleOAuthConnect}
+                    disabled={isConnecting}
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                        連接中...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 mr-2" />
+                        一鍵連接 Notion
+                      </>
+                    )}
+                  </Button>
                 ) : (
-                  <>
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span className="text-sm text-red-700">連接失敗</span>
-                  </>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-green-600">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="font-medium">已連接到 Notion</span>
+                    </div>
+                    <Button
+                      onClick={handleOAuthDisconnect}
+                      variant="outline"
+                      size="sm"
+                    >
+                      斷開連接
+                    </Button>
+                  </div>
                 )}
+              </div>
+              
+              <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 p-3 rounded">
+                <strong>OAuth 授權的優勢：</strong><br/>
+                • 一鍵連接，無需手動複製 Token<br/>
+                • 自動發現可用的資料庫<br/>
+                • 更安全的授權管理<br/>
+                • 支援自動續期
               </div>
             </div>
           )}
+
+          {/* 手動設定方式 */}
+          {setupMethod === 'manual' && (
+            <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="notion-token">Notion API Token</Label>
+                  <Input
+                    id="notion-token"
+                    type="password"
+                    placeholder="secret_..."
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    請到 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      Notion Integration 頁面 <ExternalLink className="w-3 h-3 inline" />
+                    </a> 建立新的整合並複製 API Token
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="database-id">資料庫 ID</Label>
+                  <Input
+                    id="database-id"
+                    placeholder="請輸入 Notion 資料庫 ID"
+                    value={databaseId}
+                    onChange={(e) => setDatabaseId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    從 Notion 資料庫 URL 中複製資料庫 ID (在 .so/ 和 ?v= 之間的字串)
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleTestConnection}
+                    disabled={syncing || !apiToken || !databaseId}
+                    variant="outline"
+                  >
+                    {syncing ? (
+                      <RefreshCcw className="w-4 h-4 animate-spin mr-2" />
+                    ) : connectionTested ? (
+                      connectionValid ? (
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                      )
+                    ) : null}
+                    測試連接
+                  </Button>
+
+                  {connectionTested && connectionValid && (
+                    <Button
+                      onClick={handleSaveSettings}
+                      disabled={syncing}
+                    >
+                      保存設定
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
         </CardContent>
       </Card>
 
-      {settings?.sync_enabled && (
+      {(settings?.sync_enabled || isConnected) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

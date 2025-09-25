@@ -37,3 +37,13 @@ export const AI_CONFIG = {
 export const isApiKeyConfigured = () => {
   return AI_CONFIG.OPENAI_API_KEY && AI_CONFIG.OPENAI_API_KEY !== "YOUR_OPENAI_API_KEY_HERE";
 };
+
+// Notion OAuth 配置
+export const NOTION_OAUTH_CONFIG = {
+  clientId: import.meta.env.VITE_NOTION_CLIENT_ID || '',
+  clientSecret: import.meta.env.VITE_NOTION_CLIENT_SECRET || '',
+  redirectUri: `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/auth/notion/callback`,
+  authorizeUrl: 'https://api.notion.com/v1/oauth/authorize',
+  tokenUrl: 'https://api.notion.com/v1/oauth/token',
+  scopes: ['read_content', 'update_content', 'insert_content'],
+};

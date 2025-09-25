@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import NotionSettings from "@/components/NotionSettings";
 
 export default function SettingsPage() {
   return (
@@ -20,6 +21,10 @@ export default function SettingsPage() {
 
         {/* Settings Content */}
         <div className="space-y-6">
+          {/* Notion Integration Settings */}
+          <NotionSettings />
+          
+          {/* About App */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -31,6 +36,7 @@ export default function SettingsPage() {
               <p className="text-muted-foreground">
                 這是一個簡單的思緒記錄應用，所有數據儲存在您的瀏覽器中。
                 您可以記錄想法、創建待辦事項，並使用AI功能來深度探索您的想法。
+                通過 Notion 整合，您可以同步待辦事項到您的 Notion 工作空間。
               </p>
             </CardContent>
           </Card>
