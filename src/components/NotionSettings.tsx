@@ -145,7 +145,7 @@ export default function NotionSettings() {
     const result = await syncTodosToNotion(todos);
     
     if (result.success) {
-      const successCount = result.results.filter((r: any) => r.success).length;
+      const successCount = result.results.filter((r: { success: boolean }) => r.success).length;
       toast({
         title: "同步完成",
         description: `已成功同步 ${successCount} 個待辦事項到 Notion`,

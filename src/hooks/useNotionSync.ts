@@ -114,7 +114,7 @@ export function useNotionSync() {
     }
   };
 
-  const syncTodosToNotion = async (todos: any[]) => {
+  const syncTodosToNotion = async (todos: Array<{ id: string; content: string; done: boolean; scheduledDate?: string; scheduledTime?: string }>) => {
     if (!settings?.notion_api_token || !settings?.notion_database_id) {
       throw new Error('Notion integration not configured');
     }

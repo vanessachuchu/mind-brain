@@ -8,7 +8,12 @@
       "Bash(npm install:*)",
       "Bash(git remote set-url:*)",
       "Bash(gh run list:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(bun run build:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(npm run lint)"
     ],
     "deny": []
   }

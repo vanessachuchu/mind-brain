@@ -42,8 +42,16 @@ export const isApiKeyConfigured = () => {
 export const NOTION_OAUTH_CONFIG = {
   clientId: import.meta.env.VITE_NOTION_CLIENT_ID || '',
   clientSecret: import.meta.env.VITE_NOTION_CLIENT_SECRET || '',
-  redirectUri: `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}/auth/notion/callback`,
   authorizeUrl: 'https://api.notion.com/v1/oauth/authorize',
   tokenUrl: 'https://api.notion.com/v1/oauth/token',
   scopes: ['read_content', 'update_content', 'insert_content'],
+};
+
+// 動態獲取 redirect URI 的函數
+export const getNotionRedirectUri = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/auth/notion/callback`;
+  }
+  // 在 SSR 環境中返回相對路徑
+  return '/auth/notion/callback';
 };

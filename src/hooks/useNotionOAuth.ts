@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { NOTION_OAUTH_CONFIG } from '@/config/ai';
+import { NOTION_OAUTH_CONFIG, getNotionRedirectUri } from '@/config/ai';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -23,7 +23,7 @@ export function useNotionOAuth() {
       client_id: NOTION_OAUTH_CONFIG.clientId,
       response_type: 'code',
       owner: 'user',
-      redirect_uri: NOTION_OAUTH_CONFIG.redirectUri,
+      redirect_uri: getNotionRedirectUri(),
     });
 
     return `${NOTION_OAUTH_CONFIG.authorizeUrl}?${params.toString()}`;
@@ -68,7 +68,7 @@ export function useNotionOAuth() {
         body: {
           code,
           state,
-          redirect_uri: NOTION_OAUTH_CONFIG.redirectUri,
+          redirect_uri: getNotionRedirectUri(),
         }
       });
 
