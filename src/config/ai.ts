@@ -3,7 +3,7 @@
 
 export const AI_CONFIG = {
   // OpenAI API Key - 由開發者提供，讓用戶免費使用
-  OPENAI_API_KEY: "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",
+  OPENAI_API_KEY: "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",
   
   // OpenAI API 設定
   OPENAI_BASE_URL: "https://api.openai.com/v1",
