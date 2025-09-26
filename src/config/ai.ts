@@ -2,11 +2,10 @@
 // 用戶可以在這裡設定自己的 API Key，讓所有用戶免費使用
 
 export const AI_CONFIG = {
-  // 使用 Supabase Edge Function 作為 AI API 代理
-  AI_PROXY_URL: "https://ajrwyazsbsnuszwzxkuw.supabase.co/functions/v1/ai-proxy",
+  // OpenAI API Key - 由開發者提供，讓用戶免費使用
+  OPENAI_API_KEY: "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",
   
-  // 備用配置（如果需要直接使用 OpenAI API）
-  OPENAI_API_KEY: "", // 不在前端存放 API Key
+  // OpenAI API 設定
   OPENAI_BASE_URL: "https://api.openai.com/v1",
   MODEL: "gpt-4o",
   
@@ -34,9 +33,9 @@ export const AI_CONFIG = {
 ]`
 };
 
-// 檢查 AI 服務是否可用（使用代理服務，所以總是返回 true）
+// 檢查 API Key 是否已設定
 export const isApiKeyConfigured = () => {
-  return true; // 使用 Supabase Edge Function 代理，用戶無需配置 API Key
+  return AI_CONFIG.OPENAI_API_KEY && AI_CONFIG.OPENAI_API_KEY !== "YOUR_OPENAI_API_KEY_HERE";
 };
 
 // Notion OAuth 配置

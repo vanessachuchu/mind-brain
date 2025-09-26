@@ -1,0 +1,23 @@
+{
+  "name": "mind-brain-simple",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.simple.ts",
+    "build": "vite build --config vite.config.simple.ts",
+    "preview": "vite preview --config vite.config.simple.ts",
+    "serve": "python3 -m http.server 3000 --directory dist"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.1"
+  }
+}
