@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ThoughtDetail from "./pages/ThoughtDetail";
+import CalendarPage from "./pages/Calendar";
 
 import SearchPage from "./pages/Search";
 import SettingsPage from "./pages/Settings";
@@ -38,6 +39,7 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/thought/:id" element={<ThoughtDetail />} />
                 <Route path="/todo" element={<TodoPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/auth/notion/callback" element={<NotionCallback />} />
