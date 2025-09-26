@@ -57,71 +57,37 @@ export function useAiDeepDive(initThought: string, initialMessages?: AiMessage[]
           { role: "user" as const, content: userContent }
         ].slice(-6);
 
-        // OpenAI stream fetch
-        const response = await fetch(`${AI_CONFIG.OPENAI_BASE_URL}/chat/completions`, {
+        // 使用 Supabase Edge Function 代理
+        const response = await fetch(AI_CONFIG.AI_PROXY_URL, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${AI_CONFIG.OPENAI_API_KEY}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            model: AI_CONFIG.MODEL,
-            messages: [
-              {
-                role: "system",
-                content: AI_CONFIG.DEEP_DIVE_SYSTEM_PROMPT
-              },
-              ...chatMessages
-            ],
-            stream: true,
-            max_tokens: 256,
-            temperature: 0.7
+            type: "deep-dive",
+            messages: chatMessages
           })
         });
 
-        if (!response.ok || !response.body) {
-          setError("連線失敗或金鑰錯誤。");
+        if (!response.ok) {
+          setError("AI 服務暫時不可用，請稍後再試。");
           setAnswering(false);
           return;
         }
-        // 處理stream
-        const reader = response.body.getReader();
-        let fullText = "";
-        let done = false;
 
-        // 預先插入「assistant:」空訊息
-        setMessages(prev => [...prev, { role: "assistant" as const, content: "" }]);
+        const data = await response.json();
+        
+        if (data.error) {
+          setError(data.error);
+          setAnswering(false);
+          return;
+        }
 
-        while (!done) {
-          const { value, done: readerDone } = await reader.read();
-          if (value) {
-            // 這段根據OpenAI stream schema
-            const chunk = new TextDecoder("utf-8").decode(value);
-            const lines = chunk
-              .split("\n")
-              .filter(line => line.trim().startsWith("data: "))
-              .map(line => line.replace("data: ", "").trim())
-              .filter(line => line !== "" && line !== "[DONE]");
-            for (const line of lines) {
-              try {
-                const json = JSON.parse(line);
-                const text = json.choices?.[0]?.delta?.content;
-                if (text) {
-                  fullText += text;
-                  setMessages(prev =>
-                    prev.map((msg, idx) =>
-                      idx === prev.length - 1 && msg.role === "assistant"
-                        ? { ...msg, content: fullText }
-                        : msg
-                    )
-                  );
-                }
-              } catch (err) {
-                // 忽略非json片段
-              }
-            }
-          }
-          done = readerDone;
+        const aiResponse = data.choices?.[0]?.message?.content;
+        if (aiResponse) {
+          setMessages(prev => [...prev, { role: "assistant" as const, content: aiResponse }]);
+        } else {
+          setError("AI 回應格式錯誤，請稍後再試。");
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "錯誤，請稍後再試");

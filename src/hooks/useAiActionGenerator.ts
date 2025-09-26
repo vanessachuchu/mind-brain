@@ -38,29 +38,32 @@ ${conversationContext}
 
 請基於以上內容生成5個個性化的行動計劃。`;
 
-      const response = await fetch(`${AI_CONFIG.OPENAI_BASE_URL}/chat/completions`, {
+      const response = await fetch(AI_CONFIG.AI_PROXY_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${AI_CONFIG.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: AI_CONFIG.MODEL,
-          messages: [
-            { role: 'system', content: AI_CONFIG.ACTION_PLAN_SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 1500,
+          type: 'action-plan',
+          messages: [{ role: 'user', content: userPrompt }]
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API錯誤: ${response.status}`);
+        throw new Error(`AI API錯誤: ${response.status}`);
       }
 
       const data = await response.json();
-      const generatedContent = data.choices[0].message.content.trim();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      const generatedContent = data.choices?.[0]?.message?.content?.trim();
+      
+      if (!generatedContent) {
+        throw new Error('AI 未返回有效回應');
+      }
 
       // 嘗試解析JSON回應
       let actionPlan;
