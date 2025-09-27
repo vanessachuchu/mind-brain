@@ -2,16 +2,19 @@
 import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useThoughts } from "@/hooks/useThoughts";
 import { useTodos } from "@/hooks/useTodos";
 import { CalendarTimeTable } from "@/components/CalendarTimeTable";
+import { DragCalendar } from "@/components/DragCalendar";
 import { Link } from "react-router-dom";
 import { format, isSameDay } from "date-fns";
 import { zhTW } from "date-fns/locale";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Move } from "lucide-react";
 
 export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [viewMode, setViewMode] = useState<'simple' | 'drag'>('simple');
   const { thoughts } = useThoughts();
   const { getTodosByDate } = useTodos();
 
@@ -70,88 +73,111 @@ export default function CalendarPage() {
             <p className="text-sm text-muted-foreground">時間軸上的思維軌跡</p>
           </div>
           
-          <div className="w-16"></div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'simple' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('simple')}
+              className="text-xs"
+            >
+              <CalendarIcon className="w-4 h-4 mr-1" />
+              傳統
+            </Button>
+            <Button
+              variant={viewMode === 'drag' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('drag')}
+              className="text-xs"
+            >
+              <Move className="w-4 h-4 mr-1" />
+              拖拽
+            </Button>
+          </div>
         </div>
       </div>
       
       <main className="max-w-7xl mx-auto px-4 py-6 pb-20">
-        
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
-          {/* 日曆區域 */}
-          <Card className="bg-white/80 border-stone-200/50 shadow-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-light text-stone-700">選擇日期</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                locale={zhTW}
-                className="w-full"
-                modifiers={{
-                  hasThoughts: datesWithThoughts,
-                  hasTodos: datesWithTodos
-                }}
-                modifiersClassNames={{
-                  hasThoughts: "bg-primary/20 text-primary font-bold border border-primary/40",
-                  hasTodos: "bg-accent/20 text-accent-foreground font-bold border border-accent/40"
-                }}
-              />
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
-                  <span className="inline-block w-3 h-3 bg-primary/20 rounded border border-primary/40"></span>
-                  <span>有思緒記錄</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg">
-                  <span className="inline-block w-3 h-3 bg-accent/20 rounded border border-accent/40"></span>
-                  <span>有待辦行程</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 右側區域：思緒卡片和時間表 */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* 思緒卡片區域 */}
-            {selectedDateThoughts.length > 0 && (
-              <Card className="bg-white/80 border-stone-200/50 shadow-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-light text-stone-700">
-                    {format(selectedDate, "yyyy年MM月dd日", { locale: zhTW })} 的思緒
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4 max-h-80 overflow-y-auto">
-                    {selectedDateThoughts.map(thought => (
-                      <div
-                        key={thought.id}
-                        className="border border-stone-200 rounded-lg p-4 hover:border-stone-300 transition-colors bg-white/50"
-                      >
-                        <div className="text-sm text-stone-400 mb-2 font-light">
-                          {format(new Date(parseInt(thought.id)), "HH:mm")}
-                        </div>
-                        <div className="mb-3 text-stone-700 font-light">{thought.content}</div>
-                        <div className="flex justify-end">
-                          <Link
-                            to={`/thought/${thought.id}`}
-                            className="text-sm underline text-stone-600 hover:text-stone-500 font-light"
-                          >
-                            查看詳情
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
+        {viewMode === 'drag' ? (
+          /* 拖拽式日曆視圖 */
+          <DragCalendar />
+        ) : (
+          /* 傳統日曆視圖 */
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
+            {/* 日曆區域 */}
+            <Card className="bg-white/80 border-stone-200/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-light text-stone-700">選擇日期</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  locale={zhTW}
+                  className="w-full"
+                  modifiers={{
+                    hasThoughts: datesWithThoughts,
+                    hasTodos: datesWithTodos
+                  }}
+                  modifiersClassNames={{
+                    hasThoughts: "bg-primary/20 text-primary font-bold border border-primary/40",
+                    hasTodos: "bg-accent/20 text-accent-foreground font-bold border border-accent/40"
+                  }}
+                />
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg">
+                    <span className="inline-block w-3 h-3 bg-primary/20 rounded border border-primary/40"></span>
+                    <span>有思緒記錄</span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {/* 時間表 */}
-            <CalendarTimeTable selectedDate={selectedDate} />
-          </div>
-        </div>
+                  <div className="flex items-center gap-2 p-2 bg-accent/10 rounded-lg">
+                    <span className="inline-block w-3 h-3 bg-accent/20 rounded border border-accent/40"></span>
+                    <span>有待辦行程</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
+            {/* 右側區域：思緒卡片和時間表 */}
+            <div className="xl:col-span-2 space-y-6">
+              {/* 思緒卡片區域 */}
+              {selectedDateThoughts.length > 0 && (
+                <Card className="bg-white/80 border-stone-200/50 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-light text-stone-700">
+                      {format(selectedDate, "yyyy年MM月dd日", { locale: zhTW })} 的思緒
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4 max-h-80 overflow-y-auto">
+                      {selectedDateThoughts.map(thought => (
+                        <div
+                          key={thought.id}
+                          className="border border-stone-200 rounded-lg p-4 hover:border-stone-300 transition-colors bg-white/50"
+                        >
+                          <div className="text-sm text-stone-400 mb-2 font-light">
+                            {format(new Date(parseInt(thought.id)), "HH:mm")}
+                          </div>
+                          <div className="mb-3 text-stone-700 font-light">{thought.content}</div>
+                          <div className="flex justify-end">
+                            <Link
+                              to={`/thought/${thought.id}`}
+                              className="text-sm underline text-stone-600 hover:text-stone-500 font-light"
+                            >
+                              查看詳情
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* 時間表 */}
+              <CalendarTimeTable selectedDate={selectedDate} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
