@@ -3,7 +3,7 @@
 
 export const AI_CONFIG = {
   // 使用 Supabase Edge Function 作為 AI API 代理 (安全隱藏 API Key)
-  AI_PROXY_URL: "https://ajrwyazsbsnuszwzxkuw.supabase.co/functions/v1/generate-action-plan",
+  AI_PROXY_URL: "https://ajrwyazsbsnuszwzxkuw.supabase.co/functions/v1/ai-proxy",
   
   // 備用配置
   OPENAI_API_KEY: "", // 不在前端存放 API Key
