@@ -4,8 +4,11 @@ import { zhTW } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, List, Users, Heart, Calendar as CalendarIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, List, Users, Heart, Calendar as CalendarIcon, Lightbulb, Sparkles, Edit, Trash2 } from 'lucide-react';
 import { useTodos } from '@/hooks/useTodos';
+import { useAiActionGenerator, ActionItem } from '@/hooks/useAiActionGenerator';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -52,14 +55,51 @@ const CATEGORY_ICONS = {
   meeting: CalendarIcon
 };
 
-export function DragCalendar() {
-  const { todos, updateTodo } = useTodos();
+interface DragCalendarProps {
+  thoughtContent?: string;
+  aiMessages?: Array<{role: string; content: string}>;
+}
+
+export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalendarProps) {
+  const { todos, addTodo, updateTodo, deleteTodo, toggleTodo } = useTodos();
+  const { generateActionPlan, isGenerating } = useAiActionGenerator();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [draggedTodo, setDraggedTodo] = useState<DraggedTodo | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<ActionItem[]>([]);
+  const [thoughtInput, setThoughtInput] = useState(thoughtContent);
+  const [showThoughtDialog, setShowThoughtDialog] = useState(false);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  // 輔助函數
+  const getPriorityType = (priority: string): 'personal' | 'work' | 'health' | 'meeting' => {
+    switch (priority) {
+      case 'high': return 'meeting';
+      case 'medium': return 'work';
+      case 'low': return 'personal';
+      default: return 'personal';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-amber-100 text-amber-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityBg = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'from-red-50 to-red-100';
+      case 'medium': return 'from-amber-50 to-amber-100';
+      case 'low': return 'from-green-50 to-green-100';
+      default: return 'from-gray-50 to-gray-100';
+    }
+  };
 
   // 獲取未完成的待辦事項
   const availableTodos = useMemo(() => {
@@ -96,12 +136,27 @@ export function DragCalendar() {
     }
   };
 
+  // AI 建議生成
+  const handleGenerateAiSuggestions = async () => {
+    if (!thoughtInput.trim()) {
+      setShowThoughtDialog(true);
+      return;
+    }
+    
+    try {
+      const suggestions = await generateActionPlan(thoughtInput, aiMessages);
+      setAiSuggestions(suggestions);
+    } catch (error) {
+      console.error('生成 AI 建議失敗:', error);
+    }
+  };
+
   // 拖拽處理
   const handleDragStart = (todo: any, e: React.DragEvent) => {
     const dragData: DraggedTodo = {
       id: todo.id,
-      title: todo.title,
-      type: todo.type
+      title: todo.title || todo.content,
+      type: todo.type || 'personal'
     };
     
     setDraggedTodo(dragData);
@@ -124,24 +179,50 @@ export function DragCalendar() {
 
     if (!draggedTodo) return;
 
+    const dateString = format(date, 'yyyy-MM-dd');
+    const timeString = time || '09:00';
+
+    // 檢查是否為 AI 建議
+    const isAiSuggestion = aiSuggestions.some(s => s.id === draggedTodo.id);
+    
+    if (isAiSuggestion) {
+      // 將 AI 建議轉換為待辦事項
+      const suggestion = aiSuggestions.find(s => s.id === draggedTodo.id);
+      if (suggestion) {
+        addTodo({
+          content: suggestion.content,
+          done: false,
+          scheduledDate: dateString,
+          scheduledTime: timeString,
+          startDate: dateString,
+          startTime: timeString,
+          category: suggestion.category
+        });
+        
+        // 從 AI 建議中移除
+        setAiSuggestions(prev => prev.filter(s => s.id !== draggedTodo.id));
+      }
+    } else {
+      // 更新現有待辦事項
+      updateTodo(draggedTodo.id, {
+        scheduledDate: dateString,
+        scheduledTime: timeString,
+        startDate: dateString,
+        startTime: timeString
+      });
+    }
+
     // 創建新的日曆事件
     const newEvent: CalendarEvent = {
       id: `event-${Date.now()}`,
       title: draggedTodo.title,
       type: draggedTodo.type,
-      date: format(date, 'yyyy-MM-dd'),
-      time: time || '09:00',
+      date: dateString,
+      time: timeString,
       duration: 60
     };
 
     setEvents(prev => [...prev, newEvent]);
-
-    // 更新原始待辦事項為已安排
-    updateTodo(draggedTodo.id, {
-      scheduledDate: format(date, 'yyyy-MM-dd'),
-      scheduledTime: time || '09:00'
-    });
-
     setDraggedTodo(null);
   };
 
@@ -355,20 +436,84 @@ export function DragCalendar() {
             </p>
           </CardHeader>
           <CardContent className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
-            {availableTodos.length > 0 ? (
-              <>
-                <div className="text-sm font-medium text-muted-foreground mb-4">
-                  AI 建議安排 ({availableTodos.length} 項)
+            {/* AI 建議區域 */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  AI 智慧建議 ({aiSuggestions.length} 項)
                 </div>
-                {availableTodos.map(renderTodoItem)}
-              </>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="w-8 h-8 opacity-50" />
+                <Button
+                  size="sm"
+                  onClick={handleGenerateAiSuggestions}
+                  disabled={isGenerating}
+                  className="text-xs px-3 py-1 h-7"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  {isGenerating ? '生成中...' : '生成建議'}
+                </Button>
+              </div>
+              
+              {aiSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  {aiSuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart({
+                        id: suggestion.id,
+                        title: suggestion.content,
+                        content: suggestion.content,
+                        type: getPriorityType(suggestion.priority)
+                      }, e)}
+                      onDragEnd={handleDragEnd}
+                      className={`bg-gradient-to-r border border-border/50 rounded-xl p-3 cursor-grab hover:shadow-elegant hover:-translate-y-1 transition-smooth active:cursor-grabbing group ${getPriorityBg(suggestion.priority)}`}
+                    >
+                      <div className="flex items-start gap-2 mb-2">
+                        <div className={`p-1.5 rounded-lg flex items-center justify-center ${getPriorityColor(suggestion.priority)}`}>
+                          <Lightbulb className="w-3 h-3" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-foreground text-sm leading-snug">{suggestion.content}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex gap-2">
+                          <Badge variant="secondary" className={`px-2 py-0.5 rounded-full ${getPriorityColor(suggestion.priority)}`}>
+                            {suggestion.priority === 'high' ? '🔥 高' : 
+                             suggestion.priority === 'medium' ? '⚡ 中' : '🌱 低'}
+                          </Badge>
+                          <span className="text-muted-foreground">{suggestion.timeEstimate}</span>
+                        </div>
+                        <div className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-smooth">
+                          拖拽到日曆
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-sm font-medium mb-1">沒有待安排的事項</div>
-                <div className="text-xs opacity-75">所有任務已安排完成</div>
+              )}
+              
+              {aiSuggestions.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <div className="w-12 h-12 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Lightbulb className="w-6 h-6 opacity-50" />
+                  </div>
+                  <div className="text-sm mb-1">還沒有 AI 建議</div>
+                  <div className="text-xs opacity-75">點擊「生成建議」開始</div>
+                </div>
+              )}
+            </div>
+
+            {/* 未安排的待辦事項 */}
+            {availableTodos.length > 0 && (
+              <div className="border-t pt-4">
+                <div className="text-sm font-medium text-muted-foreground mb-3">
+                  未安排事項 ({availableTodos.length} 項)
+                </div>
+                <div className="space-y-2">
+                  {availableTodos.map(renderTodoItem)}
+                </div>
               </div>
             )}
           </CardContent>
@@ -432,6 +577,53 @@ export function DragCalendar() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 思緒輸入對話框 */}
+      <Dialog open={showThoughtDialog} onOpenChange={setShowThoughtDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-amber-500" />
+              輸入您的想法
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                分享您的想法，AI 將為您生成個性化的行動建議：
+              </label>
+              <Textarea
+                value={thoughtInput}
+                onChange={(e) => setThoughtInput(e.target.value)}
+                placeholder="例如：我想提升工作效率、學習新技能、改善生活習慣..."
+                className="min-h-[100px] resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  setShowThoughtDialog(false);
+                  if (thoughtInput.trim()) {
+                    handleGenerateAiSuggestions();
+                  }
+                }}
+                disabled={!thoughtInput.trim() || isGenerating}
+                className="flex-1"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {isGenerating ? '生成中...' : '生成 AI 建議'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowThoughtDialog(false)}
+                className="flex-1"
+              >
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -99,7 +99,10 @@ export default function CalendarPage() {
       <main className="max-w-7xl mx-auto px-4 py-6 pb-20">
         {viewMode === 'drag' ? (
           /* 拖拽式日曆視圖 */
-          <DragCalendar />
+          <DragCalendar 
+            thoughtContent={selectedDateThoughts.length > 0 ? selectedDateThoughts[0].content : ""}
+            aiMessages={[]}
+          />
         ) : (
           /* 傳統日曆視圖 */
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
