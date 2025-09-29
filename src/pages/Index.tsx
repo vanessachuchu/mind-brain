@@ -1,16 +1,38 @@
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import ThoughtCard from "@/components/ThoughtCard";
 import NewThoughtDialog from "@/components/NewThoughtDialog";
+import { CarouselThoughts } from "@/components/ui/carousel-thoughts";
 import { DragCalendar } from "@/components/DragCalendar";
 import { useThoughts } from "@/hooks/useThoughts";
-import { Calendar as CalendarIcon, Move } from "lucide-react";
+import { Calendar as CalendarIcon, Move, Lightbulb } from "lucide-react";
+import { format, isSameDay } from "date-fns";
+import { zhTW } from "date-fns/locale";
 
 export default function Index() {
   const { thoughts } = useThoughts();
   const [isNewThoughtDialogOpen, setIsNewThoughtDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'traditional' | 'drag'>('drag');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // 獲取指定日期的思緒
+  const getThoughtsForDate = (date: Date) => {
+    return thoughts.filter(thought => {
+      const thoughtDate = new Date(thought.createdAt || Date.now());
+      return isSameDay(thoughtDate, date);
+    });
+  };
+
+  // 緩存當前日期的思緒
+  const currentDayThoughts = useMemo(() => 
+    getThoughtsForDate(selectedDate), 
+    [thoughts, selectedDate, refreshKey]
+  );
 
   // 獲取最新的思緒內容用於AI建議
   const getLatestThoughtContent = () => {
@@ -75,6 +97,86 @@ export default function Index() {
           </div>
         </div>
 
+        {/* 思緒探索區域 */}
+        <Card className="mb-6 shadow-soft border border-border/50 bg-card/80 backdrop-blur-sm">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div>
+                <CardTitle className="text-xl flex items-center gap-2 font-medium">
+                  <Lightbulb className="w-6 h-6 text-amber-500" />
+                  {format(selectedDate, 'yyyy年MM月dd日', { locale: zhTW })} 的思緒探索
+                  {currentDayThoughts.length > 0 && (
+                    <Badge variant="secondary">
+                      {currentDayThoughts.length} 條思緒
+                    </Badge>
+                  )}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  探索你的想法，與 AI 深度對話，生成個性化的行動方案
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedDate(new Date())}
+                  disabled={isSameDay(selectedDate, new Date())}
+                  className="text-xs"
+                >
+                  今天
+                </Button>
+                <div className="flex bg-muted/20 rounded-lg p-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedDate(prev => new Date(prev.getTime() - 24 * 60 * 60 * 1000))}
+                    className="text-xs px-2"
+                  >
+                    ←
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedDate(prev => new Date(prev.getTime() + 24 * 60 * 60 * 1000))}
+                    className="text-xs px-2"
+                  >
+                    →
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {currentDayThoughts.length > 0 ? (
+              <CarouselThoughts 
+                currentIndex={currentCardIndex} 
+                onIndexChange={setCurrentCardIndex}
+              >
+                {currentDayThoughts.map(thought => (
+                  <ThoughtCard key={thought.id} id={thought.id} content={thought.content} />
+                ))}
+              </CarouselThoughts>
+            ) : (
+              <div className="flex items-center justify-center text-center text-muted-foreground min-h-[200px]">
+                <div>
+                  <div className="text-4xl mb-4">💭</div>
+                  <p className="text-lg mb-2">
+                    {isSameDay(selectedDate, new Date()) ? '今天還沒有思緒記錄' : `${format(selectedDate, 'MM月dd日', { locale: zhTW })}沒有思緒記錄`}
+                  </p>
+                  <p className="text-sm mb-4">記錄想法，讓 AI 幫你生成行動方案</p>
+                  <Button 
+                    onClick={() => setIsNewThoughtDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    記錄想法
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* 主要內容 */}
         {viewMode === 'drag' ? (
           /* 拖拽式日曆視圖 */
@@ -112,7 +214,15 @@ export default function Index() {
           isOpen={isNewThoughtDialogOpen} 
           onClose={() => setIsNewThoughtDialogOpen(false)}
           onThoughtAdded={() => {
-            // 當新思緒添加後，組件會自動重新渲染
+            // 強制重新渲染思緒區域
+            setRefreshKey(prev => prev + 1);
+            setCurrentCardIndex(0);
+            
+            // 如果當前不是今天，切換到今天以顯示新添加的思緒
+            const today = new Date();
+            if (!isSameDay(selectedDate, today)) {
+              setSelectedDate(today);
+            }
           }}
         />
       </main>
