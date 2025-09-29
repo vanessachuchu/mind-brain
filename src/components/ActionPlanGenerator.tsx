@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AiMessage } from '@/hooks/useAiDeepDive';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,7 +47,6 @@ const getPriorityIcon = (priority: ActionItem['priority']) => {
 
 // 主元件
 export function ActionPlanGenerator({ messages, thoughtContent, onGenerateActionPlan, thoughtId }: ActionPlanGeneratorProps) {
-  const navigate = useNavigate();
   const { generateActionPlan, isGenerating } = useAiActionGenerator();
   const { addTodo } = useTodos();
   const { getThoughtById, updateGeneratedActions } = useThoughts();
