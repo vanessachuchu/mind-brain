@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, List, Users, Heart, Calendar as CalendarIcon, Lightbulb, Sparkles, Edit, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, List, Users, Heart, Lightbulb, Sparkles, Edit, Trash2 } from 'lucide-react';
 import { useTodos } from '@/hooks/useTodos';
 import { useAiActionGenerator, ActionItem } from '@/hooks/useAiActionGenerator';
 
@@ -52,7 +52,7 @@ const CATEGORY_ICONS = {
   personal: List,
   work: Users,
   health: Heart,
-  meeting: CalendarIcon
+  meeting: Calendar
 };
 
 interface DragCalendarProps {
