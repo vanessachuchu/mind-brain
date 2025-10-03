@@ -27,7 +27,10 @@
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
       "Read(//private/tmp/**)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: 修復 SimpleDragCalendar 初始化順序錯誤並優化功能\n\n主要變更：\n- 修復 todayThoughts 在 useEffect 之前初始化的問題\n- 移除獨立待辦頁面，整合功能到首頁\n- 新增 SimpleDragCalendar 智慧拖拽日曆組件\n- 優化 AI 行動計劃生成，增強 JSON 解析容錯\n- 更新底部導航，移除待辦按鈕\n- 更新依賴包版本\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
