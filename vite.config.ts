@@ -8,9 +8,9 @@ export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/mind-brain/' : './',
   server: {
     host: "127.0.0.1", 
-    port: 3000,
-    strictPort: true,
-    open: true,
+    port: 5173,
+    strictPort: false,
+    open: false,
   },
   preview: {
     host: "127.0.0.1",

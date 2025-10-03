@@ -37,7 +37,7 @@ export default function ThoughtDetail() {
       thoughtId: thought.id,
       done: false
     });
-    navigate("/todo");
+    navigate("/");
   }
 
   function handleActionPlanGenerated(plan: string) {
@@ -48,7 +48,7 @@ export default function ThoughtDetail() {
       thoughtId: thought.id,
       done: false
     });
-    navigate("/todo", { state: { newActionPlan: plan } });
+    navigate("/");
   }
 
   // 處理 AI 對話更新

@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Home, CheckSquare } from "lucide-react";
+import { Home } from "lucide-react";
 
 const navItems = [
   { 
@@ -8,12 +8,6 @@ const navItems = [
     label: "首頁", 
     icon: Home,
     key: "home" as const
-  },
-  { 
-    to: "/todo", 
-    label: "待辦", 
-    icon: CheckSquare,
-    key: "todo" as const
   }
 ];
 

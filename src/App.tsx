@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ThoughtDetail from "./pages/ThoughtDetail";
@@ -12,7 +12,6 @@ import CalendarPage from "./pages/Calendar";
 
 import SearchPage from "./pages/Search";
 import SettingsPage from "./pages/Settings";
-import TodoPage from "./pages/Todo";
 import NotionCallback from "./pages/NotionCallback";
 
 import TopNav from "./components/TopNav";
@@ -21,7 +20,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
-export type PageType = 'home' | 'chat' | 'todo' | 'calendar' | 'mindmap' | 'tags' | 'search';
+export type PageType = 'home' | 'chat' | 'calendar' | 'mindmap' | 'tags' | 'search';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
@@ -38,7 +37,7 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/thought/:id" element={<ThoughtDetail />} />
-                <Route path="/todo" element={<TodoPage />} />
+                <Route path="/todo" element={<Navigate to="/" replace />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

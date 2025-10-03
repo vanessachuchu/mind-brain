@@ -14,7 +14,20 @@
       "Bash(npx tsc:*)",
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(npm run lint)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(pkill:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:127.0.0.1)",
+      "Bash(curl:*)",
+      "Bash(npm run preview:*)",
+      "Bash(true)",
+      "Bash(NODE_ENV=development npm run dev)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Read(//private/tmp/**)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }

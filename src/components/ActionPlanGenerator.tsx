@@ -160,8 +160,8 @@ export function ActionPlanGenerator({ messages, thoughtContent, onGenerateAction
     // 清除選擇狀態，但保留生成的行動計劃
     setSelectedActions(new Set());
     
-    // 使用 React Router 導航
-    navigate('/todo');
+    // 使用 React Router 導航到首頁
+    navigate('/');
   };
 
   const handleScheduleAction = (actionId: string, schedule: {
@@ -199,8 +199,8 @@ export function ActionPlanGenerator({ messages, thoughtContent, onGenerateAction
       console.log('Adding scheduled todo with data:', todoData);
       addTodo(todoData);
       
-      // 使用 React Router 導航到待辦頁面
-      navigate('/todo');
+      // 使用 React Router 導航到首頁
+      navigate('/');
     }
     
     setSchedulingActionId(null);

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Storage Data</title>
+</head>
+<body>
+    <h1>localStorage Debug</h1>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        // Check thoughts data
+        const thoughtsData = localStorage.getItem('thoughts-data');
+        const todosData = localStorage.getItem('todos-data');
+        
+        output.innerHTML = `
+            <h2>Thoughts Data:</h2>
+            <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto;">
+${thoughtsData ? JSON.stringify(JSON.parse(thoughtsData), null, 2) : 'No thoughts data found'}
+            </pre>
+            
+            <h2>Todos Data:</h2>
+            <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto;">
+${todosData ? JSON.stringify(JSON.parse(todosData), null, 2) : 'No todos data found'}
+            </pre>
+            
+            <h2>Summary:</h2>
+            <ul>
+                <li>Thoughts count: ${thoughtsData ? JSON.parse(thoughtsData).length : 0}</li>
+                <li>Todos count: ${todosData ? JSON.parse(todosData).length : 0}</li>
+                <li>Thoughts with generatedActions: ${thoughtsData ? JSON.parse(thoughtsData).filter(t => t.generatedActions && t.generatedActions.length > 0).length : 0}</li>
+                <li>Todos with thoughtId: ${todosData ? JSON.parse(todosData).filter(t => t.thoughtId).length : 0}</li>
+            </ul>
+        `;
+    </script>
+</body>
+</html>
