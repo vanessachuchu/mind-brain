@@ -1,30 +1,23 @@
 
 import { useState, useMemo } from "react";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ThoughtCard from "@/components/ThoughtCard";
 import NewThoughtDialog from "@/components/NewThoughtDialog";
 import { CarouselThoughts } from "@/components/ui/carousel-thoughts";
-import { CalendarTimeTable } from "@/components/CalendarTimeTable";
-import { SimpleDragCalendar } from "@/components/SimpleDragCalendar";
-import { TestCalendar } from "@/components/TestCalendar";
+import { DragCalendar } from "@/components/DragCalendar";
 import { useThoughts } from "@/hooks/useThoughts";
-import { useTodos } from "@/hooks/useTodos";
+import { Calendar as CalendarIcon, Move, Lightbulb } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import { zhTW } from "date-fns/locale";
 
 export default function Index() {
-  const {
-    thoughts
-  } = useThoughts();
-  const {
-    todos
-  } = useTodos();
+  const { thoughts } = useThoughts();
+  const [isNewThoughtDialogOpen, setIsNewThoughtDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'traditional' | 'drag'>('drag');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [isNewThoughtDialogOpen, setIsNewThoughtDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // 獲取指定日期的思緒
@@ -35,93 +28,178 @@ export default function Index() {
     });
   };
 
-  // 獲取有思緒記錄的日期
-  const getDatesWithThoughts = () => {
-    return thoughts.map(thought => new Date(thought.createdAt || Date.now()));
-  };
-
   // 緩存當前日期的思緒
   const currentDayThoughts = useMemo(() => 
     getThoughtsForDate(selectedDate), 
     [thoughts, selectedDate, refreshKey]
   );
 
-  // 獲取最新思緒內容用於 AI 分析
+  // 獲取最新的思緒內容用於AI建議
   const getLatestThoughtContent = () => {
-    const latestThought = thoughts[thoughts.length - 1];
-    return latestThought?.content || "";
+    if (thoughts.length === 0) return "";
+    const latestThought = thoughts.sort((a, b) => {
+      const aTime = typeof a.createdAt === 'number' ? a.createdAt : 0;
+      const bTime = typeof b.createdAt === 'number' ? b.createdAt : 0;
+      return bTime - aTime;
+    })[0];
+    return latestThought.content;
   };
 
-  // 獲取最近的 AI 消息
+  // 獲取最近的AI對話記錄（如果有的話）
   const getRecentAiMessages = () => {
-    return []; // 這裡可以從本地存儲或狀態中獲取 AI 對話記錄
-  };
-
-  // 生成日期範圍的輔助函數
-  const generateDateRange = (startDate: string, endDate?: string): string[] => {
-    const dates: string[] = [];
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : start;
-    
-    const current = new Date(start);
-    while (current <= end) {
-      dates.push(format(current, 'yyyy-MM-dd'));
-      current.setDate(current.getDate() + 1);
-    }
-    
-    return dates;
-  };
-
-  // 獲取有待辦事項的日期（支援多日範圍）
-  const getDatesWithTodos = () => {
-    const dates: Date[] = [];
-    const dateStrings = new Set();
-    
-    todos.forEach(todo => {
-      let rangeDates: string[] = [];
-      
-      // 處理新的日期範圍格式
-      if (todo.startDate) {
-        rangeDates = generateDateRange(todo.startDate, todo.endDate);
-      }
-      // 向後兼容舊的 scheduledDate 格式
-      else if (todo.scheduledDate) {
-        rangeDates = [todo.scheduledDate];
-      }
-      
-      rangeDates.forEach(dateStr => {
-        if (!dateStrings.has(dateStr)) {
-          dateStrings.add(dateStr);
-          dates.push(new Date(dateStr));
-        }
-      });
-    });
-    
-    return dates;
+    // 這裡可以從思緒的AI對話記錄中提取，暫時返回空數組
+    return [];
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background">
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-4 py-6">
         {/* 歡迎區塊 */}
         <Card className="mb-6 shadow-soft border border-border/50 bg-card/80 backdrop-blur-sm">
           <CardContent className="text-center py-6">
             <div className="text-3xl mb-3">🧘‍♀️</div>
-            <h2 className="text-xl font-light mb-3">歡迎來到思緒探索空間</h2>
+            <h2 className="text-xl font-light mb-3">歡迎來到智慧日曆空間</h2>
             <p className="text-muted-foreground text-sm max-w-2xl mx-auto">
-              這是一個專為冥想和正念設計的數位空間。記錄日常想法、與 AI 進行深度對話、將思緒轉化為具體行動。
+              記錄想法、獲取 AI 建議、將思緒轉化為具體行動。拖拽式日曆讓你輕鬆安排時間。
             </p>
-            
           </CardContent>
         </Card>
 
-        {/* 智慧拖拽日曆 */}
-        <SimpleDragCalendar
-          thoughtContent={getLatestThoughtContent()}
-          aiMessages={getRecentAiMessages()}
-        />
+        {/* 檢視模式切換 */}
+        <div className="mb-6 flex justify-center">
+          <div className="flex bg-gradient-secondary border border-border/30 rounded-xl p-1 shadow-sm">
+            <Button
+              variant={viewMode === 'drag' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('drag')}
+              className={`px-6 py-2 text-sm font-medium transition-smooth ${
+                viewMode === 'drag' 
+                  ? 'bg-primary text-primary-foreground shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+            >
+              <Move className="w-4 h-4 mr-2" />
+              🎯 智慧拖拽日曆
+            </Button>
+            <Button
+              variant={viewMode === 'traditional' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('traditional')}
+              className={`px-6 py-2 text-sm font-medium transition-smooth ${
+                viewMode === 'traditional' 
+                  ? 'bg-primary text-primary-foreground shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+            >
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              📅 傳統檢視
+            </Button>
+          </div>
+        </div>
+
+        {/* 思緒探索區域 */}
+        <Card className="mb-6 shadow-soft border border-border/50 bg-card/80 backdrop-blur-sm">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div>
+                <CardTitle className="text-xl flex items-center gap-2 font-medium">
+                  <Lightbulb className="w-6 h-6 text-amber-500" />
+                  {format(selectedDate, 'yyyy年MM月dd日', { locale: zhTW })} 的思緒探索
+                  {currentDayThoughts.length > 0 && (
+                    <Badge variant="secondary">
+                      {currentDayThoughts.length} 條思緒
+                    </Badge>
+                  )}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  探索你的想法，與 AI 深度對話，生成個性化的行動方案
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedDate(new Date())}
+                  disabled={isSameDay(selectedDate, new Date())}
+                  className="text-xs"
+                >
+                  今天
+                </Button>
+                <div className="flex bg-muted/20 rounded-lg p-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedDate(prev => new Date(prev.getTime() - 24 * 60 * 60 * 1000))}
+                    className="text-xs px-2"
+                  >
+                    ←
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedDate(prev => new Date(prev.getTime() + 24 * 60 * 60 * 1000))}
+                    className="text-xs px-2"
+                  >
+                    →
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {currentDayThoughts.length > 0 ? (
+              <CarouselThoughts 
+                currentIndex={currentCardIndex} 
+                onIndexChange={setCurrentCardIndex}
+              >
+                {currentDayThoughts.map(thought => (
+                  <ThoughtCard key={thought.id} id={thought.id} content={thought.content} />
+                ))}
+              </CarouselThoughts>
+            ) : (
+              <div className="flex items-center justify-center text-center text-muted-foreground min-h-[200px]">
+                <div>
+                  <div className="text-4xl mb-4">💭</div>
+                  <p className="text-lg mb-2">
+                    {isSameDay(selectedDate, new Date()) ? '今天還沒有思緒記錄' : `${format(selectedDate, 'MM月dd日', { locale: zhTW })}沒有思緒記錄`}
+                  </p>
+                  <p className="text-sm mb-4">記錄想法，讓 AI 幫你生成行動方案</p>
+                  <Button 
+                    onClick={() => setIsNewThoughtDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    記錄想法
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 主要內容 */}
+        {viewMode === 'drag' ? (
+          /* 拖拽式日曆視圖 */
+          <DragCalendar 
+            thoughtContent={getLatestThoughtContent()}
+            aiMessages={getRecentAiMessages()}
+          />
+        ) : (
+          /* 傳統檢視 - 保留原有功能 */
+          <div className="text-center py-12 text-muted-foreground">
+            <div className="text-4xl mb-4">🔧</div>
+            <p className="text-lg mb-2">傳統檢視正在建構中</p>
+            <p className="text-sm">請使用智慧拖拽日曆享受完整功能</p>
+            <Button 
+              onClick={() => setViewMode('drag')}
+              className="mt-4"
+            >
+              切換到智慧拖拽日曆
+            </Button>
+          </div>
+        )}
         
-        {/* 浮動新思緒按鈕 - 兩種模式都顯示 */}
+        {/* 浮動新思緒按鈕 */}
         <button 
           onClick={() => setIsNewThoughtDialogOpen(true)} 
           className="fixed bottom-20 right-6 px-6 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 hover:from-purple-600 hover:via-pink-600 hover:to-red-600 text-white rounded-full shadow-2xl flex items-center gap-3 text-base font-medium transition-all duration-300 transform hover:scale-105 active:scale-95 z-50 animate-bounce"
@@ -136,7 +214,7 @@ export default function Index() {
           isOpen={isNewThoughtDialogOpen} 
           onClose={() => setIsNewThoughtDialogOpen(false)}
           onThoughtAdded={() => {
-            // 強制重新渲染
+            // 強制重新渲染思緒區域
             setRefreshKey(prev => prev + 1);
             setCurrentCardIndex(0);
             

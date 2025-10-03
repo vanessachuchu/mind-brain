@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AiMessage } from '@/hooks/useAiDeepDive';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,7 +47,6 @@ const getPriorityIcon = (priority: ActionItem['priority']) => {
 
 // 主元件
 export function ActionPlanGenerator({ messages, thoughtContent, onGenerateActionPlan, thoughtId }: ActionPlanGeneratorProps) {
-  const navigate = useNavigate();
   const { generateActionPlan, isGenerating } = useAiActionGenerator();
   const { addTodo } = useTodos();
   const { getThoughtById, updateGeneratedActions } = useThoughts();
@@ -135,8 +133,13 @@ export function ActionPlanGenerator({ messages, thoughtContent, onGenerateAction
         content: action.content,
         done: false,
         thoughtId: thoughtId,
+        category: action.category,
+        priority: action.priority,
+        timeEstimate: action.timeEstimate,
         startDate: action.startDate || undefined,
-        startTime: action.startTime || undefined
+        startTime: action.startTime || undefined,
+        endDate: action.endDate || undefined,
+        endTime: action.endTime || undefined
       };
       
       console.log('Adding todo with data:', todoData);
@@ -160,8 +163,8 @@ export function ActionPlanGenerator({ messages, thoughtContent, onGenerateAction
     // 清除選擇狀態，但保留生成的行動計劃
     setSelectedActions(new Set());
     
-    // 使用 React Router 導航到首頁
-    navigate('/');
+    // 顯示成功訊息，不導航離開首頁
+    alert(`✅ 成功將 ${selectedItems.length} 個行動計畫加入待辦清單！\n這些項目現在可以在拖拽日曆中安排時間。`);
   };
 
   const handleScheduleAction = (actionId: string, schedule: {
@@ -199,8 +202,8 @@ export function ActionPlanGenerator({ messages, thoughtContent, onGenerateAction
       console.log('Adding scheduled todo with data:', todoData);
       addTodo(todoData);
       
-      // 使用 React Router 導航到首頁
-      navigate('/');
+      // 顯示成功訊息，不導航離開首頁
+      alert(`✅ 成功將「${scheduledAction.content}」安排到 ${schedule.startDate} ${schedule.startTime}！\n該項目現在出現在拖拽日曆中。`);
     }
     
     setSchedulingActionId(null);
