@@ -15,7 +15,10 @@
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(npm run lint)",
       "Bash(git rm:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(open https://github.com/vanessachuchu/mind-brain)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
