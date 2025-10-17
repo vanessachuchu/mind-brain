@@ -233,7 +233,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
 
   // 渲染待辦事項
   const renderTodoItem = (todo: any) => {
-    const IconComponent = CATEGORY_ICONS[todo.type];
+    const IconComponent = CATEGORY_ICONS[todo.type as keyof typeof CATEGORY_ICONS] || List;
     return (
       <div
         key={todo.id}
