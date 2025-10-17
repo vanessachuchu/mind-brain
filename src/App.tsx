@@ -17,6 +17,7 @@ import NotionCallback from "./pages/NotionCallback";
 import TopNav from "./components/TopNav";
 import BottomNav from "./components/BottomNav";
 import { AuthProvider } from "./contexts/AuthContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -26,30 +27,34 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter basename={import.meta.env.PROD ? "/mind-brain" : ""}>
-            <div className="min-h-screen bg-background pb-16">
-              <TopNav />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/thought/:id" element={<ThoughtDetail />} />
-                <Route path="/todo" element={<Navigate to="/" replace />} />
-                <Route path="/calendar" element={<CalendarPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/auth/notion/callback" element={<NotionCallback />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <BottomNav />
-            </div>
-          </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter basename={import.meta.env.PROD ? "/mind-brain" : ""}>
+              <div className="min-h-screen bg-background pb-16">
+                <TopNav />
+                <ErrorBoundary>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/thought/:id" element={<ThoughtDetail />} />
+                    <Route path="/todo" element={<Navigate to="/" replace />} />
+                    <Route path="/calendar" element={<CalendarPage />} />
+                    <Route path="/search" element={<SearchPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/auth/notion/callback" element={<NotionCallback />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </ErrorBoundary>
+                <BottomNav />
+              </div>
+            </BrowserRouter>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

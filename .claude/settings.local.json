@@ -18,7 +18,11 @@
       "Bash(npm run dev:*)",
       "Bash(open https://github.com/vanessachuchu/mind-brain)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm run build:dev:*)",
+      "Bash(open http://127.0.0.1:3000/mind-brain/)",
+      "Bash(node:*)",
+      "Bash(curl -s http://127.0.0.1:5173/)"
     ],
     "deny": []
   }
