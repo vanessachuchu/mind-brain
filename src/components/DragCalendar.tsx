@@ -21,7 +21,7 @@ interface CalendarEvent {
   duration?: number;
 }
 
-interface DraggedTodo {
+interface SelectedTodo {
   id: string;
   title: string;
   type: 'personal' | 'work' | 'health' | 'meeting';
@@ -66,12 +66,10 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [draggedTodo, setDraggedTodo] = useState<DraggedTodo | null>(null);
-  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [selectedTodo, setSelectedTodo] = useState<SelectedTodo | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<ActionItem[]>([]);
   const [thoughtInput, setThoughtInput] = useState(thoughtContent);
   const [showThoughtDialog, setShowThoughtDialog] = useState(false);
-  const dragPreviewRef = useRef<HTMLDivElement | null>(null);
 
   // 輔助函數
   const getPriorityType = (priority: string): 'personal' | 'work' | 'health' | 'meeting' => {
@@ -151,43 +149,29 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
     }
   };
 
-  // 拖拽處理
-  const handleDragStart = (todo: any, e: React.DragEvent) => {
-    const dragData: DraggedTodo = {
+  // 點擊處理
+  const handleTodoClick = (todo: any) => {
+    const todoData: SelectedTodo = {
       id: todo.id,
       title: todo.title || todo.content,
       type: todo.type || 'personal'
     };
-    
-    setDraggedTodo(dragData);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', JSON.stringify(dragData));
+
+    setSelectedTodo(todoData);
   };
 
-  const handleDragOver = (e: React.DragEvent, cellId: string) => {
-    e.preventDefault();
-    setDragOverCell(cellId);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverCell(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, date: Date, time?: string) => {
-    e.preventDefault();
-    setDragOverCell(null);
-
-    if (!draggedTodo) return;
+  const handleCellClick = (date: Date, time?: string) => {
+    if (!selectedTodo) return;
 
     const dateString = format(date, 'yyyy-MM-dd');
     const timeString = time || '09:00';
 
     // 檢查是否為 AI 建議
-    const isAiSuggestion = aiSuggestions.some(s => s.id === draggedTodo.id);
-    
+    const isAiSuggestion = aiSuggestions.some(s => s.id === selectedTodo.id);
+
     if (isAiSuggestion) {
       // 將 AI 建議轉換為待辦事項
-      const suggestion = aiSuggestions.find(s => s.id === draggedTodo.id);
+      const suggestion = aiSuggestions.find(s => s.id === selectedTodo.id);
       if (suggestion) {
         addTodo({
           content: suggestion.content,
@@ -195,16 +179,15 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
           scheduledDate: dateString,
           scheduledTime: timeString,
           startDate: dateString,
-          startTime: timeString,
-          category: suggestion.category
+          startTime: timeString
         });
-        
+
         // 從 AI 建議中移除
-        setAiSuggestions(prev => prev.filter(s => s.id !== draggedTodo.id));
+        setAiSuggestions(prev => prev.filter(s => s.id !== selectedTodo.id));
       }
     } else {
       // 更新現有待辦事項
-      updateTodo(draggedTodo.id, {
+      updateTodo(selectedTodo.id, {
         scheduledDate: dateString,
         scheduledTime: timeString,
         startDate: dateString,
@@ -215,32 +198,29 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
     // 創建新的日曆事件
     const newEvent: CalendarEvent = {
       id: `event-${Date.now()}`,
-      title: draggedTodo.title,
-      type: draggedTodo.type,
+      title: selectedTodo.title,
+      type: selectedTodo.type,
       date: dateString,
       time: timeString,
       duration: 60
     };
 
     setEvents(prev => [...prev, newEvent]);
-    setDraggedTodo(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedTodo(null);
-    setDragOverCell(null);
+    setSelectedTodo(null);
   };
 
   // 渲染待辦事項
   const renderTodoItem = (todo: any) => {
     const IconComponent = CATEGORY_ICONS[todo.type as keyof typeof CATEGORY_ICONS] || List;
+    const isSelected = selectedTodo?.id === todo.id;
+
     return (
       <div
         key={todo.id}
-        draggable
-        onDragStart={(e) => handleDragStart(todo, e)}
-        onDragEnd={handleDragEnd}
-        className="bg-gradient-secondary border border-border/50 rounded-xl p-4 mb-3 cursor-grab hover:shadow-elegant hover:-translate-y-1 transition-smooth active:cursor-grabbing group"
+        onClick={() => handleTodoClick(todo)}
+        className={`bg-gradient-secondary border rounded-xl p-4 mb-3 cursor-pointer hover:shadow-elegant hover:-translate-y-1 transition-smooth group ${
+          isSelected ? 'border-primary border-2 shadow-lg ring-2 ring-primary/20' : 'border-border/50'
+        }`}
       >
         <div className="flex items-start gap-3 mb-3">
           <div className={`p-2 rounded-lg ${TAG_STYLES[todo.type]} flex items-center justify-center`}>
@@ -255,12 +235,14 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
         </div>
         <div className="flex items-center justify-between">
           <Badge variant="secondary" className={`text-xs px-3 py-1 rounded-full ${TAG_STYLES[todo.type]}`}>
-            {todo.type === 'personal' ? '📝 個人' : 
+            {todo.type === 'personal' ? '📝 個人' :
              todo.type === 'work' ? '💼 工作' :
              todo.type === 'health' ? '💚 健康' : '🤝 會議'}
           </Badge>
-          <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-smooth">
-            拖拽到日曆
+          <div className={`text-xs transition-smooth ${
+            isSelected ? 'text-primary font-medium' : 'text-muted-foreground opacity-0 group-hover:opacity-100'
+          }`}>
+            {isSelected ? '已選擇 ✓' : '點擊選擇'}
           </div>
         </div>
       </div>
@@ -271,38 +253,36 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
   const renderCalendarCell = (date: Date, time?: string) => {
     const cellId = time ? `${format(date, 'yyyy-MM-dd')}-${time}` : format(date, 'yyyy-MM-dd');
     const isToday = isSameDay(date, new Date());
-    const isDragOver = dragOverCell === cellId;
-    
+
     // 查找該時間段的事件
-    const cellEvents = events.filter(event => 
-      event.date === format(date, 'yyyy-MM-dd') && 
+    const cellEvents = events.filter(event =>
+      event.date === format(date, 'yyyy-MM-dd') &&
       (!time || event.time === time)
     );
 
     return (
       <div
         key={cellId}
+        onClick={() => handleCellClick(date, time)}
         className={`
-          relative min-h-[60px] p-2 border-r border-b border-border/30 transition-smooth cursor-pointer group
+          relative min-h-[60px] p-2 border-r border-b border-border/30 transition-smooth group
           ${isToday ? 'bg-gradient-to-br from-primary/10 to-primary/5 shadow-soft' : 'bg-background'}
-          ${isDragOver ? 'bg-gradient-accent border-2 border-primary border-dashed shadow-glow transform scale-[1.02]' : 'hover:bg-gradient-to-br hover:from-accent/20 hover:to-accent/10'}
+          ${selectedTodo ? 'cursor-pointer hover:bg-gradient-accent hover:border-primary hover:shadow-glow' : 'cursor-default'}
+          ${!selectedTodo && 'hover:bg-gradient-to-br hover:from-accent/20 hover:to-accent/10'}
         `}
-        onDragOver={(e) => handleDragOver(e, cellId)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, date, time)}
       >
         {viewMode === 'month' && !time && (
           <div className={`text-sm font-semibold mb-1 ${isToday ? 'text-primary' : 'text-foreground'}`}>
             {format(date, 'd')}
           </div>
         )}
-        
-        {cellEvents.length === 0 && isDragOver && (
-          <div className="absolute inset-0 flex items-center justify-center text-primary/60 text-xs font-medium">
-            拖拽至此
+
+        {cellEvents.length === 0 && selectedTodo && (
+          <div className="absolute inset-0 flex items-center justify-center text-primary/60 text-xs font-medium opacity-0 group-hover:opacity-100 transition-smooth">
+            點擊新增至此
           </div>
         )}
-        
+
         <div className="space-y-1">
           {cellEvents.map(event => (
             <div
@@ -313,6 +293,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
                 group/event hover:scale-[1.02]
               `}
               title={`${event.title} - ${event.time}`}
+              onClick={(e) => e.stopPropagation()}
             >
               {viewMode !== 'month' && time && (
                 <div className="flex items-center gap-1 mb-1 opacity-75">
@@ -432,7 +413,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
               📋 待辦事項
             </CardTitle>
             <p className="text-primary-foreground/80 text-sm leading-relaxed">
-              將項目拖拽到右側日曆安排時間
+              點擊選擇項目，再點擊日曆格子安排時間
             </p>
           </CardHeader>
           <CardContent className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
@@ -456,41 +437,48 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
               
               {aiSuggestions.length > 0 && (
                 <div className="space-y-2">
-                  {aiSuggestions.map((suggestion) => (
-                    <div
-                      key={suggestion.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart({
-                        id: suggestion.id,
-                        title: suggestion.content,
-                        content: suggestion.content,
-                        type: getPriorityType(suggestion.priority)
-                      }, e)}
-                      onDragEnd={handleDragEnd}
-                      className={`bg-gradient-to-r border border-border/50 rounded-xl p-3 cursor-grab hover:shadow-elegant hover:-translate-y-1 transition-smooth active:cursor-grabbing group ${getPriorityBg(suggestion.priority)}`}
-                    >
-                      <div className="flex items-start gap-2 mb-2">
-                        <div className={`p-1.5 rounded-lg flex items-center justify-center ${getPriorityColor(suggestion.priority)}`}>
-                          <Lightbulb className="w-3 h-3" />
+                  {aiSuggestions.map((suggestion) => {
+                    const suggestionData = {
+                      id: suggestion.id,
+                      title: suggestion.content,
+                      content: suggestion.content,
+                      type: getPriorityType(suggestion.priority)
+                    };
+                    const isSelected = selectedTodo?.id === suggestion.id;
+
+                    return (
+                      <div
+                        key={suggestion.id}
+                        onClick={() => handleTodoClick(suggestionData)}
+                        className={`bg-gradient-to-r border rounded-xl p-3 cursor-pointer hover:shadow-elegant hover:-translate-y-1 transition-smooth group ${getPriorityBg(suggestion.priority)} ${
+                          isSelected ? 'border-primary border-2 shadow-lg ring-2 ring-primary/20' : 'border-border/50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 mb-2">
+                          <div className={`p-1.5 rounded-lg flex items-center justify-center ${getPriorityColor(suggestion.priority)}`}>
+                            <Lightbulb className="w-3 h-3" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-foreground text-sm leading-snug">{suggestion.content}</div>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-foreground text-sm leading-snug">{suggestion.content}</div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex gap-2">
+                            <Badge variant="secondary" className={`px-2 py-0.5 rounded-full ${getPriorityColor(suggestion.priority)}`}>
+                              {suggestion.priority === 'high' ? '🔥 高' :
+                               suggestion.priority === 'medium' ? '⚡ 中' : '🌱 低'}
+                            </Badge>
+                            <span className="text-muted-foreground">{suggestion.timeEstimate}</span>
+                          </div>
+                          <div className={`transition-smooth ${
+                            isSelected ? 'text-primary font-medium' : 'text-muted-foreground opacity-0 group-hover:opacity-100'
+                          }`}>
+                            {isSelected ? '已選擇 ✓' : '點擊選擇'}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex gap-2">
-                          <Badge variant="secondary" className={`px-2 py-0.5 rounded-full ${getPriorityColor(suggestion.priority)}`}>
-                            {suggestion.priority === 'high' ? '🔥 高' : 
-                             suggestion.priority === 'medium' ? '⚡ 中' : '🌱 低'}
-                          </Badge>
-                          <span className="text-muted-foreground">{suggestion.timeEstimate}</span>
-                        </div>
-                        <div className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-smooth">
-                          拖拽到日曆
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               
