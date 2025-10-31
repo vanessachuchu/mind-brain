@@ -20,19 +20,28 @@ export default function Index() {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // 獲取指定日期的思緒
-  const getThoughtsForDate = (date: Date) => {
-    return thoughts.filter(thought => {
-      const thoughtDate = new Date(thought.createdAt || Date.now());
-      return isSameDay(thoughtDate, date);
+  // 緩存當前日期的思緒（最新的在前面）
+  const currentDayThoughts = useMemo(() => {
+    const filtered = thoughts.filter(thought => {
+      // 如果有 createdAt 則使用，否則從 id 中解析時間戳（對於舊數據）
+      let thoughtDate: Date;
+      if (thought.createdAt) {
+        thoughtDate = new Date(thought.createdAt);
+      } else {
+        // 從 ID 中提取時間戳（ID 格式為 timestamp + random）
+        const timestamp = parseInt(thought.id);
+        thoughtDate = isNaN(timestamp) ? new Date() : new Date(timestamp);
+      }
+      return isSameDay(thoughtDate, selectedDate);
     });
-  };
 
-  // 緩存當前日期的思緒
-  const currentDayThoughts = useMemo(() => 
-    getThoughtsForDate(selectedDate), 
-    [thoughts, selectedDate, refreshKey]
-  );
+    // 按創建時間降序排序，最新的在前面
+    return filtered.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : parseInt(a.id);
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : parseInt(b.id);
+      return bTime - aTime;
+    });
+  }, [thoughts, selectedDate, refreshKey]);
 
   // 獲取最新的思緒內容用於AI建議
   const getLatestThoughtContent = () => {
@@ -210,19 +219,27 @@ export default function Index() {
         </button>
 
         {/* 新思緒對話框 */}
-        <NewThoughtDialog 
-          isOpen={isNewThoughtDialogOpen} 
+        <NewThoughtDialog
+          isOpen={isNewThoughtDialogOpen}
           onClose={() => setIsNewThoughtDialogOpen(false)}
           onThoughtAdded={() => {
-            // 強制重新渲染思緒區域
-            setRefreshKey(prev => prev + 1);
-            setCurrentCardIndex(0);
-            
-            // 如果當前不是今天，切換到今天以顯示新添加的思緒
+            console.log('onThoughtAdded triggered, current thoughts count:', thoughts.length);
+
+            // 如果當前不是今天，先切換到今天
             const today = new Date();
             if (!isSameDay(selectedDate, today)) {
+              console.log('Switching to today to show new thought');
               setSelectedDate(today);
             }
+
+            // 重置卡片索引到第一張（最新的思緒）
+            setCurrentCardIndex(0);
+
+            // 強制重新渲染思緒區域（作為備用機制）
+            setTimeout(() => {
+              setRefreshKey(prev => prev + 1);
+              console.log('Refresh key updated');
+            }, 100);
           }}
         />
       </main>
