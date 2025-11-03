@@ -1,30 +1,26 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
-import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, parse } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, List, Users, Heart, Lightbulb, Sparkles, Edit, Trash2 } from 'lucide-react';
+import { TimePicker } from '@/components/ui/time-picker';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ChevronLeft, ChevronRight, Calendar, Clock, List, Users, Heart, Lightbulb, Sparkles, X } from 'lucide-react';
 import { useTodos } from '@/hooks/useTodos';
 import { useAiActionGenerator, ActionItem } from '@/hooks/useAiActionGenerator';
+import { cn } from '@/lib/utils';
 
 type ViewMode = 'month' | 'week' | 'day';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  type: 'personal' | 'work' | 'health' | 'meeting';
-  date: string;
-  time: string;
-  duration?: number;
-}
 
 interface SelectedTodo {
   id: string;
   title: string;
   type: 'personal' | 'work' | 'health' | 'meeting';
+  isAiSuggestion?: boolean;
 }
 
 const TIME_SLOTS = [
@@ -43,7 +39,7 @@ const EVENT_STYLES = {
 
 const TAG_STYLES = {
   personal: 'bg-gradient-primary text-primary-foreground shadow-sm',
-  work: 'bg-gradient-to-r from-amber-100 to-amber-200 dark:from-amber-900 dark:to-amber-800 text-amber-800 dark:text-amber-200 shadow-sm', 
+  work: 'bg-gradient-to-r from-amber-100 to-amber-200 dark:from-amber-900 dark:to-amber-800 text-amber-800 dark:text-amber-200 shadow-sm',
   health: 'bg-gradient-to-r from-emerald-100 to-emerald-200 dark:from-emerald-900 dark:to-emerald-800 text-emerald-800 dark:text-emerald-200 shadow-sm',
   meeting: 'bg-gradient-to-r from-rose-100 to-rose-200 dark:from-rose-900 dark:to-rose-800 text-rose-800 dark:text-rose-200 shadow-sm'
 };
@@ -61,15 +57,21 @@ interface DragCalendarProps {
 }
 
 export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalendarProps) {
-  const { todos, addTodo, updateTodo, deleteTodo, toggleTodo } = useTodos();
+  const { todos, addTodo, updateTodo, deleteTodo, getTodosByDate } = useTodos();
   const { generateActionPlan, isGenerating } = useAiActionGenerator();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedTodo, setSelectedTodo] = useState<SelectedTodo | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<ActionItem[]>([]);
   const [thoughtInput, setThoughtInput] = useState(thoughtContent);
   const [showThoughtDialog, setShowThoughtDialog] = useState(false);
+
+  // 時間編輯彈窗狀態
+  const [showTimeDialog, setShowTimeDialog] = useState(false);
+  const [editStartDate, setEditStartDate] = useState<Date>();
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndDate, setEditEndDate] = useState<Date>();
+  const [editEndTime, setEditEndTime] = useState("");
 
   // 輔助函數
   const getPriorityType = (priority: string): 'personal' | 'work' | 'health' | 'meeting' => {
@@ -101,12 +103,17 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
 
   // 獲取未完成的待辦事項
   const availableTodos = useMemo(() => {
-    return todos.filter(todo => !todo.done && !todo.scheduledDate).map(todo => ({
+    return todos.filter(todo => !todo.done && !todo.scheduledDate && !todo.startDate).map(todo => ({
       id: todo.id,
       title: todo.content,
       type: (todo.category?.toLowerCase() || 'personal') as 'personal' | 'work' | 'health' | 'meeting',
       description: todo.notes || ''
     }));
+  }, [todos]);
+
+  // 獲取所有已排程的待辦事項（用於在日曆上顯示）
+  const scheduledTodos = useMemo(() => {
+    return todos.filter(todo => todo.startDate && todo.startTime);
   }, [todos]);
 
   // 日期導航
@@ -140,7 +147,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
       setShowThoughtDialog(true);
       return;
     }
-    
+
     try {
       const suggestions = await generateActionPlan(thoughtInput, aiMessages);
       setAiSuggestions(suggestions);
@@ -149,22 +156,34 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
     }
   };
 
-  // 點擊處理
+  // 點擊待辦事項
   const handleTodoClick = (todo: any) => {
     const todoData: SelectedTodo = {
       id: todo.id,
       title: todo.title || todo.content,
       type: todo.type || 'personal'
     };
-
     setSelectedTodo(todoData);
   };
 
+  // 點擊日曆格子 - 打開時間編輯對話框
   const handleCellClick = (date: Date, time?: string) => {
     if (!selectedTodo) return;
 
-    const dateString = format(date, 'yyyy-MM-dd');
-    const timeString = time || '09:00';
+    // 設置初始值
+    setEditStartDate(date);
+    setEditStartTime(time || '09:00');
+    setEditEndDate(date);
+    setEditEndTime(time ? format(addDays(parse(time, 'HH:mm', new Date()), 0), 'HH:mm') : '10:00');
+    setShowTimeDialog(true);
+  };
+
+  // 保存時間設定
+  const handleSaveTime = () => {
+    if (!selectedTodo || !editStartDate || !editStartTime) return;
+
+    const dateString = format(editStartDate, 'yyyy-MM-dd');
+    const endDateString = editEndDate ? format(editEndDate, 'yyyy-MM-dd') : dateString;
 
     // 檢查是否為 AI 建議
     const isAiSuggestion = aiSuggestions.some(s => s.id === selectedTodo.id);
@@ -177,9 +196,11 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
           content: suggestion.content,
           done: false,
           scheduledDate: dateString,
-          scheduledTime: timeString,
+          scheduledTime: editStartTime,
           startDate: dateString,
-          startTime: timeString
+          startTime: editStartTime,
+          endDate: endDateString,
+          endTime: editEndTime
         });
 
         // 從 AI 建議中移除
@@ -189,24 +210,21 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
       // 更新現有待辦事項
       updateTodo(selectedTodo.id, {
         scheduledDate: dateString,
-        scheduledTime: timeString,
+        scheduledTime: editStartTime,
         startDate: dateString,
-        startTime: timeString
+        startTime: editStartTime,
+        endDate: endDateString,
+        endTime: editEndTime
       });
     }
 
-    // 創建新的日曆事件
-    const newEvent: CalendarEvent = {
-      id: `event-${Date.now()}`,
-      title: selectedTodo.title,
-      type: selectedTodo.type,
-      date: dateString,
-      time: timeString,
-      duration: 60
-    };
-
-    setEvents(prev => [...prev, newEvent]);
+    // 關閉對話框並清空選擇
+    setShowTimeDialog(false);
     setSelectedTodo(null);
+    setEditStartDate(undefined);
+    setEditStartTime("");
+    setEditEndDate(undefined);
+    setEditEndTime("");
   };
 
   // 渲染待辦事項
@@ -253,12 +271,23 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
   const renderCalendarCell = (date: Date, time?: string) => {
     const cellId = time ? `${format(date, 'yyyy-MM-dd')}-${time}` : format(date, 'yyyy-MM-dd');
     const isToday = isSameDay(date, new Date());
+    const dateString = format(date, 'yyyy-MM-dd');
 
-    // 查找該時間段的事件
-    const cellEvents = events.filter(event =>
-      event.date === format(date, 'yyyy-MM-dd') &&
-      (!time || event.time === time)
-    );
+    // 查找該時間段的待辦事項
+    const cellTodos = scheduledTodos.filter(todo => {
+      if (!todo.startDate) return false;
+
+      // 檢查日期是否匹配
+      const todoDate = todo.startDate;
+      if (todoDate !== dateString) return false;
+
+      // 如果指定了時間段，檢查時間是否匹配
+      if (time && todo.startTime) {
+        return todo.startTime === time;
+      }
+
+      return true;
+    });
 
     return (
       <div
@@ -277,33 +306,37 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
           </div>
         )}
 
-        {cellEvents.length === 0 && selectedTodo && (
+        {cellTodos.length === 0 && selectedTodo && (
           <div className="absolute inset-0 flex items-center justify-center text-primary/60 text-xs font-medium opacity-0 group-hover:opacity-100 transition-smooth">
-            點擊新增至此
+            點擊設定時間
           </div>
         )}
 
         <div className="space-y-1">
-          {cellEvents.map(event => (
-            <div
-              key={event.id}
-              className={`
-                text-xs p-2 rounded-lg ${EVENT_STYLES[event.type]}
-                overflow-hidden cursor-pointer hover:shadow-md transition-smooth
-                group/event hover:scale-[1.02]
-              `}
-              title={`${event.title} - ${event.time}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {viewMode !== 'month' && time && (
-                <div className="flex items-center gap-1 mb-1 opacity-75">
-                  <Clock className="w-3 h-3" />
-                  <span className="font-mono text-[10px]">{event.time}</span>
-                </div>
-              )}
-              <div className="font-medium truncate">{event.title}</div>
-            </div>
-          ))}
+          {cellTodos.map(todo => {
+            const todoType = (todo.category?.toLowerCase() || 'personal') as 'personal' | 'work' | 'health' | 'meeting';
+            return (
+              <div
+                key={todo.id}
+                className={`
+                  text-xs p-2 rounded-lg ${EVENT_STYLES[todoType]}
+                  overflow-hidden cursor-pointer hover:shadow-md transition-smooth
+                  group/event hover:scale-[1.02]
+                `}
+                title={`${todo.content} - ${todo.startTime}${todo.endTime ? ` ~ ${todo.endTime}` : ''}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {viewMode !== 'month' && time && (
+                  <div className="flex items-center gap-1 mb-1 opacity-75">
+                    <Clock className="w-3 h-3" />
+                    <span className="font-mono text-[10px]">{todo.startTime}</span>
+                    {todo.endTime && <span className="font-mono text-[10px]">- {todo.endTime}</span>}
+                  </div>
+                )}
+                <div className="font-medium truncate">{todo.content}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -311,7 +344,6 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
 
   // 渲染月視圖
   const renderMonthView = () => {
-    const dates = getDisplayDates();
     const startDate = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
     const endDate = addDays(startDate, 41); // 6 weeks
     const allDates = eachDayOfInterval({ start: startDate, end: endDate });
@@ -354,7 +386,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
             </div>
           ))}
         </div>
-        
+
         {TIME_SLOTS.map(time => (
           <div key={time} className="grid grid-cols-8 border-b border-border/30 last:border-b-0 min-h-[80px]">
             <div className="p-4 text-sm font-mono font-medium text-muted-foreground bg-gradient-to-r from-muted/20 to-muted/10 border-r border-border/30 flex items-center justify-center">
@@ -382,7 +414,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
             </div>
           )}
         </div>
-        
+
         <div className="max-h-96 overflow-y-auto">
           {TIME_SLOTS.map(time => (
             <div key={time} className="flex border-b border-border/30 last:border-b-0 min-h-[100px]">
@@ -413,7 +445,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
               📋 待辦事項
             </CardTitle>
             <p className="text-primary-foreground/80 text-sm leading-relaxed">
-              點擊選擇項目，再點擊日曆格子安排時間
+              點擊選擇項目，再點擊日曆格子設定時間
             </p>
           </CardHeader>
           <CardContent className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
@@ -434,7 +466,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
                   {isGenerating ? '生成中...' : '生成建議'}
                 </Button>
               </div>
-              
+
               {aiSuggestions.length > 0 && (
                 <div className="space-y-2">
                   {aiSuggestions.map((suggestion) => {
@@ -481,7 +513,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
                   })}
                 </div>
               )}
-              
+
               {aiSuggestions.length === 0 && (
                 <div className="text-center py-6 text-muted-foreground">
                   <div className="w-12 h-12 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -530,12 +562,12 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">
                     {viewMode === 'month' && '月視圖'}
-                    {viewMode === 'week' && '週視圖'}  
+                    {viewMode === 'week' && '週視圖'}
                     {viewMode === 'day' && '日視圖'}
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex bg-gradient-secondary border border-border/30 rounded-xl p-1 shadow-sm">
                 {(['month', 'week', 'day'] as ViewMode[]).map(mode => (
                   <Button
@@ -544,8 +576,8 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
                     size="sm"
                     onClick={() => setViewMode(mode)}
                     className={`px-4 py-2 text-sm font-medium transition-smooth ${
-                      viewMode === mode 
-                        ? 'bg-primary text-primary-foreground shadow-sm' 
+                      viewMode === mode
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                     }`}
                   >
@@ -555,7 +587,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="overflow-auto p-6">
             <div className="min-h-[400px]">
               {viewMode === 'month' && renderMonthView()}
@@ -588,7 +620,7 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
               />
             </div>
             <div className="flex gap-2">
-              <Button 
+              <Button
                 onClick={() => {
                   setShowThoughtDialog(false);
                   if (thoughtInput.trim()) {
@@ -601,9 +633,136 @@ export function DragCalendar({ thoughtContent = "", aiMessages = [] }: DragCalen
                 <Sparkles className="w-4 h-4 mr-2" />
                 {isGenerating ? '生成中...' : '生成 AI 建議'}
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowThoughtDialog(false)}
+                className="flex-1"
+              >
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 時間設定對話框 */}
+      <Dialog open={showTimeDialog} onOpenChange={setShowTimeDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                設定時間
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTimeDialog(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <div className="text-sm font-medium text-foreground mb-1">
+                {selectedTodo?.title}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {selectedTodo?.type === 'personal' ? '📝 個人' :
+                 selectedTodo?.type === 'work' ? '💼 工作' :
+                 selectedTodo?.type === 'health' ? '💚 健康' : '🤝 會議'}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">開始日期</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {editStartDate ? format(editStartDate, "yyyy-MM-dd") : "選擇日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={editStartDate}
+                      onSelect={setEditStartDate}
+                      initialFocus
+                      className="p-3"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">開始時間</label>
+                <TimePicker
+                  value={editStartTime}
+                  onChange={setEditStartTime}
+                  placeholder="開始時間"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">結束日期</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {editEndDate ? format(editEndDate, "yyyy-MM-dd") : "選擇日期"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={editEndDate}
+                      onSelect={setEditEndDate}
+                      initialFocus
+                      className="p-3"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">結束時間</label>
+                <TimePicker
+                  value={editEndTime}
+                  onChange={setEditEndTime}
+                  placeholder="結束時間"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                onClick={handleSaveTime}
+                disabled={!editStartDate || !editStartTime}
+                className="flex-1"
+              >
+                確認設定
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowTimeDialog(false)}
                 className="flex-1"
               >
                 取消
